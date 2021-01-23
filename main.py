@@ -1,18 +1,27 @@
-from config import opt
-import torch
-import models
-from data.dataset import CSIList
-from torch.utils.data import DataLoader
-from torch.autograd import Variable
-import time
-from utils.visualize import Visualizer
-from os.path import join
-import scipy.io as sio
-import numpy as np
-import cv2
-import math
-import torch.backends.cudnn as cudnn
+# -*- coding: utf-8 -*-
+# @Author: MapleSky
+# @Date:   2021-01-22 18:31:21
+# @Last Modified by:   MapleSky
+# @Last Modified time: 2021-01-23 17:59:12
+import json
 import logging
+import math
+import time
+from os.path import join
+
+import cv2
+import numpy as np
+import scipy.io as sio
+import torch
+import torch.backends.cudnn as cudnn
+from torch.autograd import Variable
+from torch.utils.data import DataLoader
+
+import models
+from config import opt
+from data.dataset import CSIList
+from data.prepare import get_heatmap, get_vectormap
+from utils.visualize import Visualizer
 
 
 class AverageMeter(object):
@@ -36,15 +45,40 @@ class AverageMeter(object):
 
 def pose_accuary(output, target, alpha=50):
     video_name, frame_number = target
-    target_dir = join(opt.train_data, 'allignedPose')
     jhms, pafs = output
-    PCK = AverageMeter()
+    
+    #sample_JHM = np.load(join(self.root_dir, "outputs",path+"_output" + ".npy"),encoding = "latin1")
     for index in range(jhms.shape[0]):
+        json_dir = join(opt.train_data, 'res', 'alphapose_results.json')
+        #print(json_dir)
+        with open(json_dir) as f:
+            #print(f)
+            sample_JHM = json.load(f)
+            JHM = sample_JHM[index]['keypoints']
+            #print(JHM)
+
+    PCK = AverageMeter()
+
+    for index in range(jhms.shape[0]):
+        '''
         gt_dir = join(target_dir, video_name[index] + '_' + frame_number[index] + '.mat')
         gt_pose = sio.loadmat(gt_dir)['openpose_array'][:, :, :-1] * 46 / 720
         gt_bbox = sio.loadmat(gt_dir)['boxes'][:, :-1] * 46 / 720
         # print(gt_pose.shape)
+        '''
         output_joints = get_joint(jhms[index], pafs[index])
+        json_dir = join(opt.train_data, 'res', 'alphapose_results.json')
+        with open(json_dir) as f:
+            # print(f)
+            sample = json.load(f)
+            JHM = sample[index]["keypoints"]
+            JHM = np.array(JHM)
+            #print(JHM.shape)
+            # 转变float64 sample_JHMs torch.size(17,46,82) sample_PAFs torch.size(36,46,82)
+            gt_pose = get_heatmap(JHM,(82, 46))[:, :, :-1]
+            gt_bbox = np.array(sample[index]["box"])
+            gt_bbox = gt_bbox[:, :-1] * (46.0 / 720)
+            sample_PAFs = get_vectormap(JHM, (82, 46))
         pck = 0
         if output_joints.shape[0] == 0:
             pck = np.zeros(9)
@@ -64,7 +98,7 @@ def pose_accuary(output, target, alpha=50):
 
 
 def computePCK(output, target, box, alpha=0.5):
-    alpha = np.tile(np.linspace(0.1, 0.9, 9), (25, 1)).transpose(1, 0)
+    alpha = np.tile(np.linspace(0.1, 0.9, 9), (17, 1)).transpose(1, 0)
     height = box[3] - box[1]
     width = box[2] - box[0]
     norm = math.sqrt(pow(width, 2) + pow(height, 2))
@@ -98,7 +132,7 @@ def get_joint(jhms, pafs):
     # print(jhms.shape, pafs.shape)
     all_peaks = []
     peak_counter = 0
-    for part in range(25):
+    for part in range(17):
         map_ori = jhms[:, :, part]
         maps = gaussian_filter(map_ori, sigma=0.3)
 
@@ -235,9 +269,9 @@ def get_joint(jhms, pafs):
     subset = np.delete(subset, deleteIdx, axis=0)
     # print(len(subset), len(subset[1]))
 
-    joint = -1 * np.zeros((len(subset), 25, 2))
+    joint = -1 * np.zeros((len(subset), 17, 2))
     for personid in range(len(subset)):
-        for squeid in range(25):
+        for squeid in range(17):
             if subset[personid][squeid] != -1:
                 for index in range(len(all_peaks[squeid])):
                     if all_peaks[squeid][index][3] == subset[personid][squeid]:
@@ -249,16 +283,29 @@ def get_joint(jhms, pafs):
 def mask_accuary(output, target, alpha=50):
     video_name, frame_number = target
     # print(video_name, frame_number, opt.batch_size)
-    target_dir = join(opt.train_data, 'mask')
+    target_dir = join(opt.train_data, 'mask_resize')
     # print(target_dir)
     mIoU = AverageMeter()
     mAP = AverageMeter()
     for index in range(output.shape[0]):
-        gt_dir = join(target_dir, video_name[index] + '_' + frame_number[index] + '.mat')
+        #gt_dir = join(target_dir, video_name[index] + '_' + frame_number[index] + '.mat')
         # print(gt_dir)
-        gt_box = sio.loadmat(gt_dir)['boxes'][:, :-1] * (46.0 / 720)
-        # print(gt_box)
+        #gt_box = sio.loadmat(gt_dir)['boxes'][:, :-1] * (46.0 / 720)!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        json_dir = join(opt.train_data, 'res', 'alphapose_results.json')
+        #print(json_dir)
+        with open(json_dir) as f:
+            #print(f)
+            sample_JHM = json.load(f)
+            gt_box = np.array(sample_JHM[index]['box'])
+            gt_box = gt_box[:, :-1] * (46.0 / 720)
+            #print(JHM)
+
+
+        
+        #print(gt_box)
         output_bbox = get_box(output[index])
+        #print(output_bbox)
         if len(output_bbox) == 0:
             continue
         IoU = 0
@@ -351,7 +398,7 @@ def train(train_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion,
         jhms, sm = torch.split(output[0], (17, 1), dim=1)
         pafs = output[1]
         print("sm: {}, jhms: {}, pafs: {}".format(sm.shape, jhms.shape, pafs.shape))
-        print(sm)
+        #print(sm)
         sm_loss = sm_criterion(torch.split(output[0], (17, 1), dim=1)[1], sm_label)
         jhms_weight = get_weight(jhms_label, 1, 1)
         jhms_loss = jhms_criterion(torch.mul(jhms_weight, torch.split(output[0], (17, 1), dim=1)[0]),
@@ -411,9 +458,9 @@ def validate(val_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion
         with torch.no_grad():
             output = model(input)
 
-        jhms, sm = torch.split(output[0], (25, 1), dim=1)
+        jhms, sm = torch.split(output[0], (17, 1), dim=1)
         pafs = output[1]
-        mIoU, mAP = mask_accuary(torch.split(output[0], (25, 1), dim=1)[1], (data['video'], data['frame']))
+        mIoU, mAP = mask_accuary(torch.split(output[0], (17, 1), dim=1)[1], (data['video'], data['frame']))
         mask_score_mIoU.update(mIoU, input.size(0))
         mask_score_mAP.update(mAP, input.size(0))
         pose_score.update(pose_accuary((jhms, pafs), (data['video'], data['frame'])), input.size(0))

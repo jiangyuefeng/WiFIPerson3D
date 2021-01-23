@@ -4,10 +4,10 @@ import warnings
 class DefaultConfig(object):
     model = 'WiFiModel'
 
-    train_data = '/run/user/1000/gvfs/smb-share:server=509lw.local,share=code/g19/jyf/mypro/PersonWiFi3/dataset'
+    train_data = '/home/public/b509/code/g19/jyf/mypro/PersonWiFi3/dataset'
     test_data = '/run/user/1000/gvfs/smb-share:server=509lw.local,share=code/g19/jyf/mypro/PersonWiFi3/dataset'
     load_model_path = ''
-    batch_size = 16
+    batch_size = 32
     use_gpu = True
     num_workers = 4
     print_freq = 20

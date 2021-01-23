@@ -1,9 +1,0 @@
-git@github.com:jiangyuefeng/WiFIPerson3D.git
-
-训练：
-运行alphapose
-python video_demo.py --video /run/user/1000/gvfs/smb-share:server=509lw.local,share=code/g19/jyf/mypro/PersonWiFi3/lib/alphapose/examples/video/2020-1-4_four_video.avi --outdir examples/res1 --save_video
-#  ~/b509/code/g19/jyf/mypro/PersonWiFi3/lib/alphapose/examples/video/2020-1-4_four_video.avi
-运行python -m visdom.server
-再另一个窗口 运行Python main.py
-

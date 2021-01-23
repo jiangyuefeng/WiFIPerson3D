@@ -1,21 +1,30 @@
-import os
-import numpy as np
-from torch.utils import data
-import cv2 as cv
-# from PIL import Image
-from torchvision import transforms as T
-from os.path import join
-from prepare import *
+# -*- coding: utf-8 -*-
+# @Author: MapleSky
+# @Date:   2021-01-23 15:33:06
+# @Last Modified by:   MapleSky
+# @Last Modified time: 2021-01-23 17:46:56
+# coding=UTF-8
 import json
+import os
+from os.path import join
+
+import cv2 as cv
+import numpy as np
+import pandas as pd
+import scipy.io as sio
+from pandas import offsets
+from torch.utils import data
 # from os.path import exists, join, split, dirname
 # import sys
 from torch.utils.data import DataLoader
+# from PIL import Image
+from torchvision import transforms as T
+
+from .prepare import *
+
 # sys.path.insert(0, "lib/")
 # sys.path.insert(0, "../lib/")
 
-import pandas as pd
-from pandas import offsets
-import scipy.io as sio
 # from PIL import Image
 # import cv2
 # import math
@@ -80,9 +89,9 @@ class CSIList(data.Dataset):
         #print(np.concatenate(csi_temp, axis=2))
         sample_csi = np.concatenate(csi_temp, axis=2).transpose(2, 0, 1)
         #print(sample_csi.shape)
-        print(self.root_dir)
-        print(self.data_list[index].split(" ")[:1][0])
-        print(type(self.data_list[index].split(" ")[:1][0]))
+        #print(self.root_dir)
+        #print(self.data_list[index].split(" ")[:1][0])
+        #print(type(self.data_list[index].split(" ")[:1][0]))
         sample_SM = sio.loadmat(
             join(self.root_dir, "mask_resize",
                 self.data_list[index].split(" ")[:1][0]+"_"+str(index+2)) + ".mat")['masks']
@@ -90,13 +99,13 @@ class CSIList(data.Dataset):
         #转变float64  torch.size(1,46,82)
         sample_SM = sample_SM.double()
         #print(sample_SM.shape)
-        json_dir = join(self.root_dir, 'res', 'alphapose-results.json')
+        json_dir = join(self.root_dir, 'res', 'alphapose_results.json')
         with open(json_dir) as f:
             # print(f)
             sample = json.load(f)
             JHM = sample[index]["keypoints"]
             JHM = np.array(JHM)
-            print(JHM.shape)
+            #print(JHM.shape)
             # 转变float64 sample_JHMs torch.size(17,46,82) sample_PAFs torch.size(36,46,82)
             sample_JHMs = get_heatmap(JHM,(82, 46))[:, :, :-1]
             sample_PAFs = get_vectormap(JHM, (82, 46))
@@ -137,7 +146,7 @@ class CSIList(data.Dataset):
 
     def get_data(self):
         num = len(self.data_list)
-        print(num)
+        #print(num)
         data=[]
         #for index in range(4000,4001):
         for index in range(0,num):
@@ -167,7 +176,7 @@ class CSIList(data.Dataset):
 
                 next_frame_time = next_frame_time + offsets.DateOffset(microseconds=50000)
 
-            print(i)
+            #print(i)
 
 
             #print(start_time + offsets.DateOffset(microseconds=150000))
@@ -191,7 +200,7 @@ class CSIList(data.Dataset):
                 #print(self.root_dir)
                 #sample_JHM = np.load(join(self.root_dir, "outputs","self.data_list[index].split(" ")[:1])"+"_output" + ".npy")
                 #sample_JHM = np.load(join(self.root_dir, "outputs",path+"_output" + ".npy"),encoding = "latin1")
-                json_dir = join(self.root_dir, 'res', 'alphapose-2020-1-4_four_results.json')
+                json_dir = join(self.root_dir, 'res', 'alphapose_results.json')
                 #print(json_dir)
                 with open(json_dir) as f:
                     #print(f)
@@ -204,7 +213,7 @@ class CSIList(data.Dataset):
             frame_number = self.data_list[index].split(" ")[1]
             if(next_frame_time < (start_time+offsets.DateOffset(
                     microseconds=150000))):
-                print(frame_number)
+                #print(frame_number)
                 data.append({
                     'csi': sample_csi,
                     'SM': JHM,
@@ -226,11 +235,11 @@ class CSIList(data.Dataset):
                         for line in open(join(root, name), 'r'):
                             if os.path.exists(
                                     join(
-                                        self.root_dir, "res","alphapose-"+"results" + ".json")):
+                                        self.root_dir, "res","alphapose_"+"results" + ".json")):
                                 self.data_list.append(
                                     name.strip("Timestamp.txt") + 'video' + " " + str(frame_index) + " " + line.strip())
                             frame_index += 1
-                        print(self.data_list[0])
+                        #print(self.data_list[0])
         csi = dict()
         for root, dirs, files in os.walk(join(self.root_dir, "csi")):
             for name in files:
@@ -265,7 +274,7 @@ class CSIList(data.Dataset):
 
 if __name__ == '__main__':
 
-    data = CSIList(root_dir="/run/user/1000/gvfs/smb-share:server=509lw.local,share=code/g19/jyf/mypro/PersonWiFi3/dataset")
+    data = CSIList(root_dir="/home/public/b509/code/g19/jyf/mypro/PersonWiFi3/dataset")
     data[0]
     #data = csi.get_data()
     #print(data[0])

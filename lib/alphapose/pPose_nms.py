@@ -24,9 +24,9 @@ def pose_nms(bboxes, bbox_scores, pose_preds, pose_scores):
     '''
     Parametric Pose NMS algorithm
     bboxes:         bbox locations list (n, 4)
-    bbox_scores:    bbox scores list (n,)
+    bbox_scores:    bbox scores list (n,1)
     pose_preds:     pose locations list (n, 17, 2)
-    pose_scores:    pose scores list    (n, 17, 1)
+    pose_scores:    pose scores list    (n, 17)
     '''
     #global ori_pose_preds, ori_pose_scores, ref_dists
 
@@ -392,8 +392,6 @@ def write_json(all_results, outputpath, for_eval=False):
         im_name = im_res['imgname']
         for human in im_res['result']:
             print(human)
-            keypoints = []
-            box = []
             result = {}
             if for_eval:
                 result['image_id'] = int(im_name.split('/')[-1].split('.')[0].split('_')[-1])
@@ -409,20 +407,21 @@ def write_json(all_results, outputpath, for_eval=False):
             kp_preds = kp_preds.numpy()
             kp_scores = kp_scores.numpy()
             kp_scores = np.expand_dims(kp_scores, axis=2)
-            print(kp_preds.shape)
-            print(kp_scores.shape)
-            kp_preds = np.concatenate((kp_preds,kp_scores),axis=2)
-            kp_preds = kp_preds.tolist()
-            #加入box
-            for n in range(bbox_scores.shape[0]):
-                box.append(float(bbox[n, 0]))
-                box.append(float(bbox[n, 1]))
-                box.append(float(bbox[n, 2]))
-                box.append(float(bbox[n, 3]))
-                box.append(float(bbox_scores[n]))
-            result['keypoints'] = kp_preds
+            bbox = bbox.numpy()
+            bbox_scores = bbox_scores.numpy()
+            '''
+            kp_preds:     pose locations list (n, 17, 2)
+            kp_scores:    pose scores list    (n, 17, 1)
+            bbox:         pose locations list (n, 4)
+            bbox_scores:    pose scores list    (n, 1)
+            '''
+            kp = np.concatenate((kp_preds,kp_scores),axis=2)
+            kp= kp.tolist()
+            box = np.concatenate((bbox,bbox_scores),axis=1)
+            box = box.tolist()
+            result['keypoints'] = kp
             result['box'] = box
-            print(kp_scores)
+            #print(kp)
             json_results.append(result)
 
     with open(os.path.join(outputpath,'alphapose-results.json'), 'w') as json_file:
