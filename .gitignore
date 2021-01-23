@@ -3,3 +3,4 @@ lib/alphapose/examples
 checkpoints/
 lib/alphapose/models
 result/
+*.json
