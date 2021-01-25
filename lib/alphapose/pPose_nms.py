@@ -391,7 +391,7 @@ def write_json(all_results, outputpath, for_eval=False):
     for im_res in all_results:
         im_name = im_res['imgname']
         for human in im_res['result']:
-            print(human)
+            #print(human)
             result = {}
             if for_eval:
                 result['image_id'] = int(im_name.split('/')[-1].split('.')[0].split('_')[-1])

@@ -8,8 +8,8 @@ import numpy as np
 np.set_printoptions(threshold=np.inf)
 
 
-def get_heatmap(pose, target_size):
-    width, height = target_size
+def get_heatmap(ori_size, pose, target_size):
+    width, height = ori_size
     heatmap = np.zeros((pose.shape[1] + 1, height, width), dtype=np.float32)
 
     # print(pose[0][0])
@@ -17,21 +17,15 @@ def get_heatmap(pose, target_size):
         for idx, point in enumerate(pose[person]):
             if point[0] <= 0 or point[1] <= 0:
                 continue
-            point = point[0:2] * 0.064
+            point = point[0:2]
             heatmap = put_heatmap(heatmap, idx, point[0:2], 1.0)
     # print(heatmap[24, 492:540, 779:828])
     # sio.savemat("D:\Project\Person-in-WiFi\dataset\mask_resize\\" + "heatmap.mat", {'heatmap': np.array(heatmap)})
     heatmap = heatmap.transpose((1, 2, 0))
     heatmap[:, :, -1] = np.clip(1 - np.amax(heatmap, axis=2), 0.0, 1.0)
     # print(heatmap)
-    # if target_size:
-    #     mapholder = []
-    #     for i in range(0, pose.shape[1] + 1):
-    #         a = cv2.resize(np.array(heatmap[:, :, i]), target_size, interpolation=cv2.INTER_CUBIC)
-    #         mapholder.append(a)
-    #     mapholder = np.array(mapholder)
-    #     heatmap = mapholder.transpose(1, 2, 0)
-    # print(np.sum(heatmap[:, :, :-1]))
+    if target_size:
+        heatmap = cv2.resize(heatmap, target_size)
     return heatmap.astype(np.float16)
 
 
@@ -67,26 +61,24 @@ def put_heatmap(heatmap, plane_idx, center, sigma):
     return heatmap
 
 
-def get_vectormap(pose, target_size):
-    width, height = target_size
+def get_vectormap(ori_size, pose, target_size):
+    width, height = ori_size
     # print(pose.shape[1])
-    vectormap = np.zeros(((pose.shape[1] + 1) * 2, height, width),
-                         dtype=np.float32)
-    countmap = np.zeros((pose.shape[1] + 1, height, width), dtype=np.int16)
-
     limb = list(
         zip([
-            0, 1, 0, 2, 5, 5, 7, 6, 8, 5, 6, 11, 11, 12, 13, 14
+            0, 1, 0, 2, 5, 5, 7, 6, 8, 11, 12, 13, 14
         ], [
-            1, 3, 2, 4, 6, 7, 9, 8, 10, 11, 12, 12, 13, 14, 16
+            1, 3, 2, 4, 6, 7, 9, 8, 10, 13, 14, 15, 16
         ]))
+    vectormap = np.zeros(((len(limb)) * 2, height, width),dtype=np.float32)
+    countmap = np.zeros((len(limb), height, width), dtype=np.int16)
     for joins in range(pose.shape[0]):
         for plane_idx, (j_idx1, j_idx2) in enumerate(limb):
             # j_idx1 -= 1
             # j_idx2 -= 1
 
-            center_from = pose[joins][j_idx1] * 0.064
-            center_to = pose[joins][j_idx2] * 0.064
+            center_from = pose[joins][j_idx1]
+            center_to = pose[joins][j_idx2]
             if center_from[0] < -100 or center_from[1] < -100 or center_to[
                     0] < -100 or center_to[1] < -100 or center_from[
                         2] <= 0 or center_to[2] <= 0:
@@ -95,6 +87,7 @@ def get_vectormap(pose, target_size):
                                       center_from, center_to)
 
     vectormap = vectormap.transpose(1, 2, 0)
+    #print(vectormap.shape)
     nonzeros = np.nonzero(countmap)
     # Image.fromarray(np.sum(countmap, axis=0).astype(np.float) * 255).show()
     # print(nonzeros)
@@ -104,15 +97,8 @@ def get_vectormap(pose, target_size):
         vectormap[y][x][p * 2 + 0] /= countmap[p][y][x]
         vectormap[y][x][p * 2 + 1] /= countmap[p][y][x]
 
-    # if target_size:
-    #     mapholder = []
-    #     for i in range(0, (pose.shape[1] + 1) * 2):
-    #         a = cv2.resize(np.array(vectormap[:, :, i]),
-    #                        target_size,
-    #                        interpolation=cv2.INTER_AREA)
-    #         mapholder.append(a)
-    #     mapholder = np.array(mapholder)
-    #     vectormap = mapholder.transpose(1, 2, 0)
+    if target_size:
+        vectormap = cv2.resize(vectormap, target_size)
     return vectormap.astype(np.float16)
 
 
@@ -156,46 +142,47 @@ def put_vectormap(vectormap,
 
 
 if __name__ == "__main__":
-    root_dir = "/run/user/1000/gvfs/smb-share:server=509lw.local,share=code/g19/jyf/mypro/PersonWiFi3/dataset"
+    root_dir = "/home/public/b509/code/g19/jyf/mypro/PersonWiFi3/dataset"
     pose_dir = join(root_dir, "res")
+    print(pose_dir)
 
     # jhms and pafs
     for root, dirs, files in os.walk(pose_dir):
+        print(root)
         for name in files:
             if os.path.splitext(name)[-1] == '.json':
                 print(name)
-                json_dir = join(root, 'alphapose-2020-1-4_four_results.json')
+                json_dir = join(root, 'alphapose_results.json')
                 with open(json_dir) as f:
+                    result_resize = []
                     # print(f)
                     sample_json = json.load(f)
-                    results_forvis = {}
-                    last_image_name = ' '
-                    for i in range(len(sample_json)):
-                        imgpath = sample_json[i]['image_id']
-                        img_name = imgpath[:imgpath.rfind('.')]
-                        img_num = int(img_name)+1
-                        imgpath = f'{str(img_num)}.jpg'
-                        # print(img_name)
-                        # print(imgpath)
-                        if last_image_name != imgpath:
-                            results_forvis[imgpath] = []
-                            jhm = sample_json[i]['keypoints']
-                            jhm = np.array(jhm)
-                            jhm = jhm.reshape(17,3)
-                            jhm = jhm.tolist()
-                            results_forvis[imgpath].append(jhm)
-                        else:
-                            jhm = sample_json[i]['keypoints']
-                            jhm = np.array(jhm)
-                            jhm = jhm.reshape(17,3)
-                            jhm = jhm.tolist()
-                            results_forvis[imgpath].append(jhm)
-                        last_image_name = imgpath
-                    x = results_forvis['1.jpg']
-                    x = np.array(x)
-                    print(x.shape)
-                #sample_JHMs = get_heatmap(x, (82, 46))
-                #sample_PAFs = get_vectormap(x, (82, 46))
-                notrack_json = os.path.join(root_dir,'res', "alphaposse-results-forvis.json")
-                with open(notrack_json, 'w') as json_file:
-                    json_file.write(json.dumps(results_forvis))
+                    for sample in sample_json:
+                        result = {}
+                        JHM = sample['keypoints']
+                        box = sample['box']
+                        image_id = sample['image_id']
+                        num = image_id.split('.')[0]
+                        #print(image_id)
+                        JHM = np.array(JHM)
+                        #print(JHM.shape)
+                        # 转变float64 sample_JHMs torch.size(17,46,82) sample_PAFs torch.size(36,46,82)
+                        sample_JHMs = get_heatmap(JHM,(82, 46)).tolist()
+                        sample_PAFs = get_vectormap(JHM, (82, 46)).tolist()
+                        
+                        result["image_id"] = image_id
+                        result["JHM"] = sample_JHMs
+                        result["PAF"] = sample_PAFs
+                        result["box"] = box
+                        result_resize.append(result)
+                        
+                        sio.savemat(join(root_dir, "res", 'pose_resize',), {
+                            'JHMs': sample_JHMs,
+                            'PAFs': sample_PAFs,
+
+                        })
+                    #json save   
+                    #print(result_resize)
+                    notrack_json = os.path.join(root_dir,'res', "alphaposse_results_resize.json")
+                    with open(notrack_json, 'w') as json_file:
+                        json_file.write(json.dumps(result_resize))

@@ -41,44 +41,28 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+    
+def load_json():
+    json_dir = join(opt.train_data, 'res', 'alphapose_results.json')
+    #print(json_dir)
+    with open(json_dir) as f:
+        #print(f)
+        sample_json = json.load(f)
+    return sample_json
 
-
-def pose_accuary(output, target, alpha=50):
+def pose_accuary(sample_json, output, target, alpha=50):
     video_name, frame_number = target
     jhms, pafs = output
-    
-    #sample_JHM = np.load(join(self.root_dir, "outputs",path+"_output" + ".npy"),encoding = "latin1")
-    for index in range(jhms.shape[0]):
-        json_dir = join(opt.train_data, 'res', 'alphapose_results.json')
-        #print(json_dir)
-        with open(json_dir) as f:
-            #print(f)
-            sample_JHM = json.load(f)
-            JHM = sample_JHM[index]['keypoints']
-            #print(JHM)
-
     PCK = AverageMeter()
-
     for index in range(jhms.shape[0]):
-        '''
-        gt_dir = join(target_dir, video_name[index] + '_' + frame_number[index] + '.mat')
-        gt_pose = sio.loadmat(gt_dir)['openpose_array'][:, :, :-1] * 46 / 720
-        gt_bbox = sio.loadmat(gt_dir)['boxes'][:, :-1] * 46 / 720
-        # print(gt_pose.shape)
-        '''
+        i = frame_number[index]
+        i = int(i)
+        gt_joint = np.array(sample_json[i]['keypoints'])
+        gt_pose = get_heatmap((1280, 720), gt_joint,(82, 46))[:, :, :-1]
+        gt_box = np.array(sample_json[i]['box'])
+        gt_bbox = gt_box[:, :-1] * (46.0 / 720)
+        #print(JHM)
         output_joints = get_joint(jhms[index], pafs[index])
-        json_dir = join(opt.train_data, 'res', 'alphapose_results.json')
-        with open(json_dir) as f:
-            # print(f)
-            sample = json.load(f)
-            JHM = sample[index]["keypoints"]
-            JHM = np.array(JHM)
-            #print(JHM.shape)
-            # 转变float64 sample_JHMs torch.size(17,46,82) sample_PAFs torch.size(36,46,82)
-            gt_pose = get_heatmap(JHM,(82, 46))[:, :, :-1]
-            gt_bbox = np.array(sample[index]["box"])
-            gt_bbox = gt_bbox[:, :-1] * (46.0 / 720)
-            sample_PAFs = get_vectormap(JHM, (82, 46))
         pck = 0
         if output_joints.shape[0] == 0:
             pck = np.zeros(9)
@@ -155,17 +139,15 @@ def get_joint(jhms, pafs):
     # print(all_peaks[-1][-1][-1])
     if all_peaks[-1][-1][-1] > 500:
         return np.array([])
+    
 
-    limbSeq = [[2, 9], [2, 3], [2, 6], [3, 4], [4, 5], [6, 7], [7, 8],
-               [9, 10], [10, 11], [11, 12], [9, 13], [13, 14], [14, 15],
-               [2, 1], [1, 16], [16, 18], [1, 17], [17, 19], [3, 18],
-               [6, 19], [15, 20], [20, 21], [15, 22], [12, 23], [23, 24],
-               [12, 25]]
-    mapIdx = [[0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11], [12, 13],
-              [14, 15], [16, 17], [18, 19], [20, 21], [22, 23], [24, 25],
-              [26, 27], [28, 29], [30, 31], [32, 33], [34, 35], [36, 37],
-              [38, 39], [40, 41], [42, 43], [44, 45], [46, 47], [48, 49],
-              [50, 51]]
+    mapIdx = [[0, 1], [2, 3], [4, 5], [6, 7], 
+              [8, 9], [10, 11], [12, 13],[14, 15], [16, 17], 
+              [26, 27], [28, 29], [30, 31], [32, 33]]
+    limSeq = [[0, 1], [0, 2], [1, 3], [2, 4],  # Head
+              [5, 6], [5, 7], [7, 9], [6, 8], [8, 10],
+              #[17, 11], [17, 12], [17, 0] # Body
+              [11, 13], [12, 14], [13, 15], [14, 16]]
 
     connection_all = []
     special_k = []
@@ -217,7 +199,7 @@ def get_joint(jhms, pafs):
             connection_all.append([])
     # print(len(connection_all))
 
-    subset = -1 * np.ones((0, 27))
+    subset = -1 * np.ones((0, 14))
     candidate = np.array([item for sublist in all_peaks for item in sublist])
 
     for k in range(len(mapIdx)):
@@ -254,8 +236,8 @@ def get_joint(jhms, pafs):
                         subset[j1][-2] += candidate[partBs[i].astype(int), 2] + connection_all[k][i][2]
 
                 # if find no partA in the subset, create a new subset
-                elif not found and k < 24:
-                    row = -1 * np.ones(27)
+                elif not found and k < 12:
+                    row = -1 * np.ones(19)
                     row[indexA] = partAs[i]
                     row[indexB] = partBs[i]
                     row[-1] = 2
@@ -280,7 +262,7 @@ def get_joint(jhms, pafs):
     return joint
 
 
-def mask_accuary(output, target, alpha=50):
+def mask_accuary(sample_json, output, target, alpha=50):
     video_name, frame_number = target
     # print(video_name, frame_number, opt.batch_size)
     target_dir = join(opt.train_data, 'mask_resize')
@@ -288,21 +270,11 @@ def mask_accuary(output, target, alpha=50):
     mIoU = AverageMeter()
     mAP = AverageMeter()
     for index in range(output.shape[0]):
-        #gt_dir = join(target_dir, video_name[index] + '_' + frame_number[index] + '.mat')
-        # print(gt_dir)
-        #gt_box = sio.loadmat(gt_dir)['boxes'][:, :-1] * (46.0 / 720)!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        i = frame_number[index]
+        i = int(i)
+        gt_box = np.array(sample_json[i]['box'])
+        gt_box = gt_box[:, :-1] * (46.0 / 720)
 
-        json_dir = join(opt.train_data, 'res', 'alphapose_results.json')
-        #print(json_dir)
-        with open(json_dir) as f:
-            #print(f)
-            sample_JHM = json.load(f)
-            gt_box = np.array(sample_JHM[index]['box'])
-            gt_box = gt_box[:, :-1] * (46.0 / 720)
-            #print(JHM)
-
-
-        
         #print(gt_box)
         output_bbox = get_box(output[index])
         #print(output_bbox)
@@ -364,12 +336,11 @@ def get_box(data):
     return bbox
 
 
-def train(train_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion, optimizer, epoch, loss_visi, mask_score_visi, pose_score_visi):
+def train(sample_json, train_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion, optimizer, epoch, loss_visi, mask_score_visi, pose_score_visi):
     losses = AverageMeter()
     mask_score_mIoU = AverageMeter()
     mask_score_mAP = AverageMeter()
     pose_score = AverageMeter()
-
     model.train()
 
     for i, data in enumerate(train_dataloader):
@@ -409,10 +380,10 @@ def train(train_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion,
         # print("mask: {} , label: {}, sm_loss: {}, jhms_loss: {}, pafs_loss: {}".format(sm.shape, sm_label.shape, sm_loss, jhms_loss, pafs_loss))
         loss = 0.1 * sm_loss + jhms_loss + pafs_loss
         losses.update(loss.item(), input.size(0))
-        mIoU, mAP = mask_accuary(torch.split(output[0], (17, 1), dim=1)[1], (data['video'], data['frame']))
+        mIoU, mAP = mask_accuary(sample_json, torch.split(output[0], (17, 1), dim=1)[1], (data['video'], data['frame']))
         mask_score_mIoU.update(mIoU, input.size(0))
         mask_score_mAP.update(mAP, input.size(0))
-        pose_score.update(pose_accuary((jhms, pafs), (data['video'], data['frame'])), input.size(0))
+        pose_score.update(pose_accuary(sample_json, (jhms, pafs), (data['video'], data['frame'])), input.size(0))
 
         loss.backward()
         optimizer.step()
@@ -443,7 +414,7 @@ def train(train_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion,
     model.save()
 
 
-def validate(val_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion, epoch):
+def validate(sample_json, val_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion, epoch):
     mask_score_mIoU = AverageMeter()
     mask_score_mAP = AverageMeter()
     pose_score = AverageMeter()
@@ -460,10 +431,10 @@ def validate(val_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion
 
         jhms, sm = torch.split(output[0], (17, 1), dim=1)
         pafs = output[1]
-        mIoU, mAP = mask_accuary(torch.split(output[0], (17, 1), dim=1)[1], (data['video'], data['frame']))
+        mIoU, mAP = mask_accuary(sample_json, torch.split(output[0], (17, 1), dim=1)[1], (data['video'], data['frame']))
         mask_score_mIoU.update(mIoU, input.size(0))
         mask_score_mAP.update(mAP, input.size(0))
-        pose_score.update(pose_accuary((jhms, pafs), (data['video'], data['frame'])), input.size(0))
+        pose_score.update(pose_accuary(sample_json, (jhms, pafs), (data['video'], data['frame'])), input.size(0))
     data_time = time.time() - start_time
     print(f'validata: epoch:{epoch:<8}time:{data_time:<8.3f}mIou:{mask_score_mIoU.avg:<8.3f}')
     logging.info(f'validata: epoch:{epoch:<8}time:{data_time:<8.3f}mIoU:{mask_score_mIoU.avg:<8.3f}')
@@ -491,6 +462,7 @@ def get_weight(gt, k, b):
 
 def main(**kwargs):
     print('start')
+    sample_json = load_json()
     opt.parse(kwargs)
     # step1 loading model
     model = getattr(models, opt.model)()
@@ -550,8 +522,8 @@ def main(**kwargs):
     logging.basicConfig(filename='result.txt', level=logging.INFO, filemode='w')
 
     for epoch in range(opt.max_epoch):
-        train(train_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion, optimizer, epoch, loss_visi, mask_score_visi, pose_score_visi)
-        mask_score, pose_score = validate(val_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion, epoch)
+        train(sample_json, train_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion, optimizer, epoch, loss_visi, mask_score_visi, pose_score_visi)
+        mask_score, pose_score = validate(sample_json, val_dataloader, model, sm_criterion, jhms_criterion, pafs_criterion, epoch)
         if mask_score > best_mask_score:
             best_mask_score = mask_score
         if np.sum(pose_score) > np.sum(best_pose_score):

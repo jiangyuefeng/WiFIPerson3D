@@ -280,11 +280,11 @@ class WiFiModel(BasicModel):
         self.fullconv_1 = nn.Sequential(
             nn.AdaptiveMaxPool2d((46, 82)),
 
-            nn.Conv2d(150, 36, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(36),
+            nn.Conv2d(150, 26, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(26),
             nn.ReLU(inplace=True),
 
-            nn.Conv2d(36, 18, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.Conv2d(26, 18, kernel_size=1, stride=1, padding=0, bias=False),
             # L2Norm(18, 10),
             nn.BatchNorm2d(18),
             # nn.ReLU(inplace=True),
@@ -297,9 +297,9 @@ class WiFiModel(BasicModel):
             nn.BatchNorm2d(104),
             nn.ReLU(inplace=True),
 
-            nn.Conv2d(104, 36, kernel_size=1, stride=1, padding=0, bias=False),
-            # L2Norm(36, 10),
-            nn.BatchNorm2d(36),
+            nn.Conv2d(104, 26, kernel_size=1, stride=1, padding=0, bias=False),
+            # L2Norm(26, 10),
+            nn.BatchNorm2d(26),
             nn.ReLU(inplace=True)
         )
 
