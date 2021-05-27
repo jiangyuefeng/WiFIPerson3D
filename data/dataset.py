@@ -95,7 +95,8 @@ class CSIList(data.Dataset):
         mat_data = sio.loadmat(join(self.root_dir, "alphapose", '20210417', 'mu_alphapose_resize', "_".join(
                 self.data_list[index].split(" ")[:2])) + ".mat")
         sample_JHMs = mat_data['heatmap'][:,:,:-1]
-        sample_box = mat_data['bbox']
+        sample_box = mat_data['bbox'][:,:,:2]
+        print(sample_box.shape)
         sample_box = self.pose_transform(sample_box)
         sample_JHMs = self.pose_transform(sample_JHMs)
         #print(sample_JHMs.shape)

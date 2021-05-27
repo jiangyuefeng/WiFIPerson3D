@@ -10,7 +10,7 @@ np.set_printoptions(threshold=np.inf)
 
 def get_bbox(ori_size,box,target_size):
     width, height = target_size
-    bbox = np.zeros((2, height, width), dtype=np.float32)
+    bbox = np.zeros((4, height, width), dtype=np.float32)
     for person in range(box.shape[0]):
         for idx, point in enumerate(box[person]):
             if point <= 0:
@@ -96,7 +96,7 @@ def put_heatmap(heatmap, plane_idx, center, sigma):
 if __name__ == "__main__":
     root_dir = "/home/public/b509/code/dataset"
     alphapose_dir = join(root_dir, "alphapose", "20210417")
-    for frame_index in range(40,41):
+    for frame_index in range(2,43):
         file_name = "2021-4-18_p" + str(frame_index) + "_video"
         json_dir = join(alphapose_dir, "AlphaPose_out", file_name,
                         "alphapose-results.json")

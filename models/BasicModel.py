@@ -13,7 +13,7 @@ class BasicModel(nn.Module):
     
     def save(self, name=None):
         if name is None:
-            prefix = 'checkpoints/2/' + self.model_name + '_'
+            prefix = 'checkpoints/3/' + self.model_name + '_'
             name = time.strftime(prefix + '%m%d_%H_%M_%S.pth')
         torch.save(self.state_dict(), name)
         return name

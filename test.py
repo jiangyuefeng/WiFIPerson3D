@@ -7,6 +7,8 @@ from data.dataset import CSIList
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from utils.joint import Joint
+from utils.heatmap import Heatmap
+from utils.mask import Mask
 import scipy.io as sio
 import main
 import numpy as np
@@ -89,7 +91,6 @@ def test(**kwargs):
         with torch.no_grad():
             score = model(input)
         jhm, mask_predict = torch.split(score, (17, 2), dim=1)
-        '''
         for i in range(opt.batch_size):
             pic = index * 32 + i
             if True:
@@ -105,8 +106,8 @@ def test(**kwargs):
                 heatmap.show_sp()
                 mask = Mask(mask_predict[i], data['box'][i])
                 mask.show()
-                plt.show()
-        '''        
+                plt.show() 
+        '''      
         pck = main.pose_accuary(jhm, mask_predict, (data['video'], data['frame']))
         miou, ap = main.mask_accuary(mask_predict, (data['video'], data['frame']))
         PCK.update(pck)
@@ -114,7 +115,7 @@ def test(**kwargs):
         mIoU.update(miou)      
     print(mIoU.avg)
     getPlot(PCK.avg)
- 
+    '''
 
     '''
     preds, maxvals = main.get_joint(jhm[i][:-1, :, :])
