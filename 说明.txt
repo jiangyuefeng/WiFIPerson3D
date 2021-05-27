@@ -1,0 +1,31 @@
+git@github.com:jiangyuefeng/WiFIPerson3D.git
+
+训练：
+
+运行python3 -m visdom.server
+再另一个窗口 运行Python3 main.py
+
+
+coco关键点序列：
+0 鼻子
+1 左眼
+2 右眼
+3 左耳
+4 右耳
+5 左肩
+6 右肩
+7 左肘
+8 右肘
+9 左腕
+10 右腕
+11 左臀
+12 右臀
+13 左膝
+14 右膝
+15 左踝
+16 右踝
+-------(5+6)/2 -> 17 颈
+
+修改：
+dataset部分时间戳对应修改（否则视频和csi采集顺序造成死循环）
+去掉PAFs部分和MASK部分

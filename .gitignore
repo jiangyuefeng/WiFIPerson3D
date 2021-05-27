@@ -1,0 +1,9 @@
+dataset/
+lib/alphapose/examples
+checkpoints/
+lib/alphapose/models
+result/
+*.json
+*.pth
+*.avi
+*.mat
